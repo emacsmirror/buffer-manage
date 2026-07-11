@@ -45,10 +45,29 @@
 (config-manage-declare-variables config-manager-instance)
 (defvar config-entry-status)
 
+(defun config-manage-error-report (err reason)
+  "Create a new buffer with an error ERR created by `condition-case'.
+REASON gives a human readable reason for the error."
+  (display-warning 'config-manage
+		   (format "In `%s': %S\n" reason err) :error))
+
 (defclass config-persistent (eieio-named)
   ((pslots :initarg :pslots
 	   :initform nil
-	   :type list))
+	   :type list
+	   :documentation "\
+Slots persisted by `config-persistent-persist' and restored by
+`config-persistent-unpersist'.  Each element is the symbol naming an instance
+slot whose value is included in the serialized configuration.")
+   (unpersist-error-policy
+    :initarg :unpersist-error-policy
+    :initform 'signal
+    :type symbol
+    :documentation
+    "How errors restoring contained persistent objects are handled.
+
+The value `signal' propagates the error.  The value `warn' reports the
+error and omits the object that could not be restored."))
   :method-invocation-order :c3
   :documentation "\
 Super class for objects that want to persist to the file system.
@@ -115,27 +134,39 @@ needed in this framework."
 
 (cl-defmethod config-persistent-unpersist-value ((this config-persistent) val)
   "Unpersist VAL using THIS persistent.
+
 This is done by determining its type and then recursively applying to create
-unerpsist \(optionally) children classes and slots."
-  (ignore this)
-  (or (and (consp val)
-	   (let ((fval (car val)))
-	     (and (consp fval)
-		  (consp (car fval))
-		  (eq 'class (caar fval))
-		  (-map (lambda (val)
-			  (config-persistent-unpersist val))
-			val))))
-      val))
+unpersisted child classes and slots."
+  (cl-flet ((unpersist-value
+              (value)
+              (condition-case err
+		  (config-persistent-unpersist value)
+		(error (if (eq (slot-value this 'unpersist-error-policy)
+			       'signal)
+			   (signal (car err) (cdr err))
+			 (config-manage-error-report
+			  err
+			  (format "Could not restore persisted class: %S"
+				  (cdr (assq 'class value))))
+			 nil)))))
+    (or (and (consp val)
+             (let ((fval (car val)))
+               (and (consp fval)
+                    (consp (car fval))
+                    (eq 'class (caar fval))
+                    (->> val
+                         (-map #'unpersist-value)
+                         (-non-nil)))))
+        val)))
 
 (cl-defmethod config-persistent-unpersist ((this config-persistent) vals)
   "Set the slot data of THIS instance with data given in VALS as `pslots'."
   (with-slots (pslots) this
     (->> pslots
 	 (-map (lambda (slot)
-		 (let ((val (->> (cdr (assq slot vals))
-				 (config-persistent-unpersist-value this))))
-		   (setf (slot-value this slot) val)))))))
+		 (->> (cdr (assq slot vals))
+		      (config-persistent-unpersist-value this)
+		      (setf (slot-value this slot))))))))
 
 (cl-defmethod config-persistent-unpersist ((vals list) &optional obj)
   "Restore the objects state from VALS.
@@ -218,8 +249,17 @@ class to extend over this class.")
       (if (file-exists-p file)
 	  (with-temp-buffer
 	    (insert-file-contents file)
-	    (let ((config (read (buffer-string))))
-	      (config-persistent-unpersist config this)))))))
+	    (condition-case err
+		(let ((config (read (buffer-string))))
+		  (config-persistent-unpersist config this))
+	      (error (if (eq (slot-value this 'unpersist-error-policy)
+			     'signal)
+			 (signal (car err) (cdr err))
+		       (config-manage-error-report
+			err
+			(format "Could not restore persisted class: %S"
+				(eieio-object-class-name this)))
+		       nil))))))))
 
 
 

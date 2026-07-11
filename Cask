@@ -3,7 +3,7 @@
 (source melpa-stable)
 
 (depends-on "dash" "2.17.0")
-(depends-on "choice-program" "0.13")
+(depends-on "choice-program" "0.16.0")
 
 (package-file "buffer-manage.el")
 

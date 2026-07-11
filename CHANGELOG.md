@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 
+## [1.2.0] - 2026-07-11
+### Added
+- Added recovery policy when un-persisting `config-persistent` instances by
+  adding a new slot `unpersist-error-policy`.  It either recovers from bad
+  entries or keeps the previous behavior of signaling the error (default).
+
+### Changed
+- Switch to using the warning system (`display-warning`) for recovered errors.
+
+
 ## [1.1.2] - 2026-06-26
 ### Changed
 - Fix singleton choice list for class `config-choice-description-prop`.
@@ -118,7 +128,8 @@ First major release.
 
 
 <!-- links -->
-[Unreleased]: https://github.com/plandes/buffer-manage/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/plandes/buffer-manage/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/plandes/buffer-manage/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/plandes/buffer-manage/compare/v1.1...v1.1.2
 [1.1]: https://github.com/plandes/buffer-manage/compare/v1.0...v1.1
 [1.0]: https://github.com/plandes/buffer-manage/compare/v0.13...v1.0

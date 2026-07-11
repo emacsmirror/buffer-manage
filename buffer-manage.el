@@ -1,13 +1,13 @@
 ;;; buffer-manage.el --- Manage buffers  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2015 - 2021 Paul Landes
+;; Copyright (C) 2015 - 2026 Paul Landes
 
-;; Version: 1.1
+;; Version: 1.2.0
 ;; Author: Paul Landes
 ;; Maintainer: Paul Landes
 ;; Keywords: internal maint
 ;; URL: https://github.com/plandes/buffer-manage
-;; Package-Requires: ((emacs "26.1") (choice-program "0.13") (dash "2.17.0"))
+;; Package-Requires: ((emacs "26.1") (choice-program "0.16.0") (dash "2.17.0"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -408,11 +408,7 @@ THIS is the object instance."
 		      (mapcar (lambda (entry)
 				(if (buffer-entry-live-p entry) entry))
 			      entries))))
-    (error (with-current-buffer
-	       (get-buffer-create "*Manage Buffer Errors*")
-	     (goto-char (point-max))
-	     (insert (format "In `buffer-manager-cleanup': %S\n" err))
-	     (display-buffer (current-buffer))))))
+    (error (config-manage-error-report err "Could not cleanup"))))
 
 (defun buffer-manager-process-sentinel (process msg entry manager)
   "Sentinal call back.
