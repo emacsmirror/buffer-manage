@@ -222,7 +222,22 @@ THIS is the instance."
 
 
 (defclass config-buffer-prop (config-prop)
-  ()
+  ((require-process :initarg :require-process
+		    :initform t
+		    :type boolean
+		    :documentation "\
+Whether the buffer must have an associated process.
+
+This defaults to non-nil for backward compatibility with the original
+validation behavior.")
+   (valid-modes :initarg :valid-modes
+		:initform nil
+		:type list
+		:documentation
+    "Major modes under which the buffer is valid.
+
+Each entry is checked with `derived-mode-p'.  When nil, do not validate
+the buffer's major mode."))
   :method-invocation-order :c3
   :documentation "An Emacs buffer property.")
 
@@ -232,8 +247,8 @@ THIS is the instance."
   (with-slots (history) this
     ;; rid killed buffers from history
     (setf (symbol-value history)
-	  (-filter #'(lambda (buf)
-		       (buffer-live-p buf))
+	  (-filter (lambda (buf)
+		     (buffer-live-p buf))
 		   (symbol-value history)))
     (let* ((default (config-prop-default-input this))
 	   (prompt (config-prop-prompt this))
@@ -244,9 +259,17 @@ THIS is the instance."
 
 (cl-defmethod config-prop-validate ((this config-buffer-prop) val)
   "Validate the property value VAL using THIS instance."
-  (ignore this)
-  (if (not (get-buffer-process val))
-      (error "Buffer %S has no process" val)))
+  (with-slots (require-process valid-modes) this
+    (when (and require-process
+               (not (get-buffer-process val)))
+      (error "Buffer %S has no process" val))
+    (when (and valid-modes
+               (with-current-buffer val
+                 (not (apply #'derived-mode-p valid-modes))))
+      (error "Buffer %S has invalid major mode %S; expected one of: %S"
+             val
+             (buffer-local-value 'major-mode val)
+             valid-modes))))
 
 
 (defclass config-choice-prop (config-prop)
